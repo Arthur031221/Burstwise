@@ -35,7 +35,11 @@ def pause(seconds: float) -> None:
 def script(page: Page, url: str) -> None:
     page.goto(url)
     page.wait_for_selector(".card", timeout=120000)
-    pause(1.6)
+    pause(2.2)
+    page.locator(".group .more").first.click()
+    pause(1.4)
+    page.locator(".group .more").first.click()
+    pause(0.8)
     page.locator('.card[data-state="reject"]').first.click()
     pause(1.6)
     page.keyboard.press("f")

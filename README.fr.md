@@ -132,7 +132,7 @@ Lightroom Classic ne lit les sidecars `.xmp` que pour les fichiers raw. Pour JPE
 - [Benchmark](docs/benchmark.md)
 - [Contribuer](CONTRIBUTING.md)
 
-L'application de revue parle anglais, chinois traditionnel et simplifié, japonais, coréen, espagnol, français, allemand et portugais du Brésil, avec un thème sombre et un thème clair.
+L'application de revue affiche en grand la meilleure image de chaque groupe et replie les longs groupes, et les flèches, P, X, U et 1 à 5 fonctionnent directement depuis la grille. L'application de revue parle anglais, chinois traditionnel et simplifié, japonais, coréen, espagnol, français, allemand et portugais du Brésil, avec un thème sombre et un thème clair.
 
 ## Données d'exemple
 

@@ -66,6 +66,12 @@ with the group pick, see the detected faces with blink scores, and zoom on a fac
 | `Esc` | close the photo |
 | `?` | list the keys |
 
+The grid shows the best frame of each group large, the pick you made or else the top ranked frame
+that is not rejected. A group of more than 12 frames folds to its best frame, every pick, review
+and decided frame, and a few more, with a button to show all of them. On the grid itself the
+arrow keys move between photos, and `P`, `X`, `U` and `1` to `5` act on the focused photo
+without opening it. Tab reaches the grid and `Enter` opens a photo.
+
 Your decisions are saved in `FOLDER/.burstwise/decisions.json` and are used when you write
 sidecars or copy keepers. The settings panel changes the group similarity and the softness
 ratio and regroups from cached measurements without reading the photos again.

@@ -132,7 +132,7 @@ Lightroom Classic lee los sidecars `.xmp` solo para archivos raw. En JPEG, TIFF,
 - [Benchmark](docs/benchmark.md)
 - [Contribuir](CONTRIBUTING.md)
 
-La app de revisión habla inglés, chino tradicional y simplificado, japonés, coreano, español, francés, alemán y portugués de Brasil, con tema oscuro y claro.
+La app de revisión muestra en grande el mejor fotograma de cada grupo y pliega los grupos largos, y las flechas, P, X, U y 1 a 5 funcionan directamente desde la cuadrícula. La app de revisión habla inglés, chino tradicional y simplificado, japonés, coreano, español, francés, alemán y portugués de Brasil, con tema oscuro y claro.
 
 ## Datos de ejemplo
 

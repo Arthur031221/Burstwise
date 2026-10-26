@@ -132,7 +132,7 @@ Lightroom Classic liest `.xmp`-Sidecars nur für Raw-Dateien. Bei JPEG, TIFF, PN
 - [Benchmark](docs/benchmark.md)
 - [Mitwirken](CONTRIBUTING.md)
 
-Die Review-App spricht Englisch, traditionelles und vereinfachtes Chinesisch, Japanisch, Koreanisch, Spanisch, Französisch, Deutsch und brasilianisches Portugiesisch, mit dunklem und hellem Design.
+Die Prüf-App zeigt das beste Bild jeder Gruppe groß und klappt lange Gruppen zusammen, und die Pfeiltasten, P, X, U und 1 bis 5 funktionieren direkt im Raster. Die Review-App spricht Englisch, traditionelles und vereinfachtes Chinesisch, Japanisch, Koreanisch, Spanisch, Französisch, Deutsch und brasilianisches Portugiesisch, mit dunklem und hellem Design.
 
 ## Beispieldaten
 

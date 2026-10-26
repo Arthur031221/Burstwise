@@ -15,6 +15,7 @@ let state = null;
 let decisions = {};
 let filter = null;
 let open = null;
+const expanded = new Set();
 let view = { compare: false, faces: false, zoom: false };
 
 function h(tag, attrs = {}, ...kids) {
@@ -156,15 +157,12 @@ async function decide(id, patch, advance = false) {
   }
 }
 
-// Only the card that changed is redrawn unless a filter is on, so a long grid keeps its
-// scroll position and its images.
+// Only the group that changed is redrawn unless a filter is on, so a long grid keeps its
+// scroll position, its images and the focused card.
 function refresh(p) {
-  const old = document.querySelector(`.card[data-id="${p.id}"]`);
-  if (filter || !old) return render();
+  if (filter || !document.querySelector(`.card[data-id="${p.id}"]`)) return render();
   renderCounts();
-  const fresh = card(p);
-  fresh.querySelector("img").replaceWith(old.querySelector("img"));
-  old.replaceWith(fresh);
+  rebuildGroup(p.group);
 }
 
 // ---- grid -------------------------------------------------------------------------
@@ -187,19 +185,83 @@ function renderCounts() {
   );
 }
 
-function card(p) {
+function card(p, hero = false) {
   const s = eff(p);
   const note = [...p.reasons, ...p.problems].map(reasonText)[0] || "";
   const own = decisions[p.id];
   return h("button", {
-    class: "card", "data-state": s, "data-id": p.id, onclick: () => openViewer(p.id),
-    "aria-label": `${p.name}, ${t(`state.${s}`)}`,
+    class: hero ? "card hero" : "card", "data-state": s, "data-id": p.id, onclick: () => openViewer(p.id),
+    "aria-label": `${p.name}, ${t(`state.${s}`)}${note ? `, ${note}` : ""}`,
   },
-    h("img", { src: thumbUrl(p, 480), loading: "lazy", alt: p.name, decoding: "async" }),
+    h("img", { src: thumbUrl(p, hero ? 960 : 480), loading: "lazy", alt: "", decoding: "async" }),
     h("span", { class: "badge", style: `--c:var(--${s})` }, t(`state.${s}`)),
     own && h("span", { class: "own" }, [own.state && t("override"), own.rating && `★${own.rating}`]
       .filter(Boolean).join(" ")),
     note && h("span", { class: "why" }, note));
+}
+
+// A group of more than this many frames shows its best frame large and only the frames
+// that matter until it is expanded.
+const COLLAPSE_FROM = 12;
+const COLLAPSED_SHOWS = 9;
+
+// The best frame of a group: the one you picked, else the top ranked frame that is not rejected.
+function heroOf(members) {
+  const live = members.filter((p) => eff(p) !== "reject").sort((a, b) => a.rank - b.rank);
+  return live.find((p) => decisions[p.id]?.state === "pick") || live[0] || null;
+}
+
+function groupCards(g, members) {
+  const hero = filter || members.length < 3 ? null : heroOf(members);
+  const rest = members.filter((p) => p !== hero);
+  const total = members.length;
+  const folded = !filter && total > COLLAPSE_FROM && !expanded.has(g);
+  let keep = rest;
+  if (folded) {
+    const matters = (p) => eff(p) === "pick" || eff(p) === "review" || decisions[p.id];
+    const room = Math.max(0, COLLAPSED_SHOWS - 1 - rest.filter(matters).length);
+    let spare = room;
+    keep = rest.filter((p) => matters(p) || spare-- > 0);
+  }
+  return { hero, keep, hidden: total - keep.length - (hero ? 1 : 0), collapsible: !filter && total > COLLAPSE_FROM };
+}
+
+function section(g, photos, shown) {
+  const ids = state.groups[g];
+  const members = ids.filter((id) => shown.has(id)).map((id) => photos[id]);
+  if (!members.length) return null;
+  const all = ids.map((id) => photos[id]);
+  const span = Math.round(all[all.length - 1].taken - all[0].taken);
+  const { hero, keep, hidden, collapsible } = groupCards(g, members);
+  const shownCards = hero ? [hero, ...keep] : keep;
+  return h("section", { class: "group", "data-group": g },
+    h("h3", {}, h("b", {}, t("group.title", { n: g + 1 })), t("group.frames", { n: ids.length }), "·",
+      t("group.span", { s: span }),
+      collapsible && h("button", {
+        class: "more", "aria-expanded": String(hidden === 0),
+        onclick: () => { expanded[hidden ? "add" : "delete"](g); rebuildGroup(g); },
+      }, hidden ? t("group.more", { n: ids.length }) : t("group.less"))),
+    h("div", { class: "strip" }, shownCards.map((p) => card(p, p === hero))));
+}
+
+function renderGroup(g) {
+  const shown = new Set(visible().map((p) => p.id));
+  return section(g, byId(), shown);
+}
+
+// Redraws one group in place, keeping the loaded images and the focused card.
+function rebuildGroup(g) {
+  const old = document.querySelector(`.group[data-group="${g}"]`);
+  const fresh = renderGroup(g);
+  if (!old || !fresh) return render();
+  const imgs = new Map([...old.querySelectorAll(".card img")].map((i) => [i.closest(".card").dataset.id, i]));
+  const focused = old.contains(document.activeElement) && document.activeElement.closest(".card")?.dataset.id;
+  fresh.querySelectorAll(".card img").forEach((img) => {
+    const had = imgs.get(img.closest(".card").dataset.id);
+    if (had && had.getAttribute("src") === img.getAttribute("src")) img.replaceWith(had);
+  });
+  old.replaceWith(fresh);
+  if (focused) fresh.querySelector(`.card[data-id="${focused}"]`)?.focus({ preventScroll: true });
 }
 
 function render() {
@@ -210,18 +272,7 @@ function render() {
   if (!state.photos.length) return $("main").replaceChildren(h("p", { class: "empty" }, t("empty")));
   const shown = new Set(visible().map((p) => p.id));
   const photos = byId();
-  const sections = [];
-  state.groups.forEach((ids, g) => {
-    const members = ids.filter((id) => shown.has(id)).map((id) => photos[id]);
-    if (!members.length) return;
-    const all = ids.map((id) => photos[id]);
-    const span = Math.round(all[all.length - 1].taken - all[0].taken);
-    sections.push(h("section", { class: "group" },
-      h("h3", {}, h("b", {}, t("group.title", { n: g + 1 })), t("group.frames", { n: ids.length }), "·",
-        t("group.span", { s: span })),
-      h("div", { class: "strip" }, members.map(card))));
-  });
-  $("main").replaceChildren(...sections);
+  $("main").replaceChildren(...state.groups.map((_, g) => section(g, photos, shown)).filter(Boolean));
 }
 
 function reasonText(item) {
@@ -251,7 +302,12 @@ function closeViewer() {
   open = null;
   $("viewer").hidden = true;
   document.body.style.overflow = "";
-  const card = last && document.querySelector(`.card[data-id="${last}"]`);
+  let card = last && document.querySelector(`.card[data-id="${last}"]`);
+  if (last && !card) {
+    expanded.add(state.photos.find((q) => q.id === last).group);
+    rebuildGroup(state.photos.find((q) => q.id === last).group);
+    card = document.querySelector(`.card[data-id="${last}"]`);
+  }
   card?.scrollIntoView({ block: "center" });
   card?.focus({ preventScroll: true });
 }
@@ -412,8 +468,9 @@ async function undo() {
 function helpDialog() {
   const rows = [["← →", "help.nav"], ["↑ ↓", "help.group"], ["P", "help.pick"], ["X", "help.reject"], ["U", "help.auto"],
     ["1 – 5", "help.rate"], ["C", "help.compare"], ["F", "help.faces"], ["Z", "help.zoom"], ["Esc", "help.close"]];
-  showDialog(t("action.help"), h("table", {}, rows.map(([k, label]) =>
-    h("tr", {}, h("td", {}, h("kbd", {}, k)), h("td", {}, t(label))))), [[t("viewer.close")]]);
+  showDialog(t("action.help"), h("div", {}, h("table", {}, rows.map(([k, label]) =>
+    h("tr", {}, h("td", {}, h("kbd", {}, k)), h("td", {}, t(label))))),
+  h("p", {}, h("small", {}, t("help.grid")))), [[t("viewer.close")]]);
 }
 
 let timer;
@@ -451,10 +508,37 @@ function trapFocus(e) {
   items[e.shiftKey ? items.length - 1 : 0].focus();
 }
 
+// On the grid, the arrow keys move between cards and the verdict keys act on the focused card.
+function gridKey(e) {
+  const el = document.activeElement?.closest?.(".card");
+  if (!el) return;
+  const cards = [...document.querySelectorAll(".card")];
+  const here = el.getBoundingClientRect();
+  const dist = (r) => Math.abs(r.left + r.width / 2 - (here.left + here.width / 2));
+  let target;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") target = cards[cards.indexOf(el) + (e.key === "ArrowLeft" ? -1 : 1)];
+  else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    const down = e.key === "ArrowDown";
+    const rows = cards.map((c) => [c, c.getBoundingClientRect()])
+      .filter(([, r]) => (down ? r.top >= here.bottom - 2 : r.bottom <= here.top + 2));
+    const edge = down ? Math.min(...rows.map(([, r]) => r.top)) : Math.max(...rows.map(([, r]) => r.bottom));
+    target = rows.filter(([, r]) => Math.abs((down ? r.top : r.bottom) - edge) < 2)
+      .sort((a, b) => dist(a[1]) - dist(b[1]))[0]?.[0];
+  } else {
+    const id = el.dataset.id;
+    const rated = /^[1-5]$/.test(e.key) ? Number(e.key) : null;
+    if (e.key === "p" || e.key === "x" || e.key === "u") decide(id, e.key === "u" ? null : { state: e.key === "p" ? "pick" : "reject" });
+    else if (rated) decide(id, { rating: decisions[id]?.rating === rated ? null : rated });
+    else return;
+    return e.preventDefault();
+  }
+  if (target) { e.preventDefault(); target.focus(); }
+}
+
 function onKey(e) {
   if (e.target.matches("input, select, textarea") || $("dialog").open || e.metaKey || e.ctrlKey) return;
   if (e.key === "?") return helpDialog();
-  if (!open) return;
+  if (!open) return gridKey(e);
   if (e.key === "Tab") return trapFocus(e);
   const p = state.photos.find((q) => q.id === open);
   const keys = {

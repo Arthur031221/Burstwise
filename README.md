@@ -18,9 +18,9 @@
   <img src="assets/demo.gif" alt="Burstwise culling a folder of 166 photos and opening the review app" width="880">
 </p>
 
-Burstwise culls a shoot on your own machine. It groups photos of the same moment, flags blur, closed eyes and clipped exposure, picks the best frame in each group and writes the result as XMP ratings and colour labels next to your files. Nothing gets uploaded and no original is touched.
+Burstwise culls a shoot on your own machine. It groups photos of the same moment, flags blur, closed eyes and clipped exposure, picks the best frame in each group and writes the result as XMP ratings and colour labels next to your files. Nothing is uploaded and no original is touched.
 
-On the sample set it reads, groups and judges **166 photos in 1.9 seconds** on a GPU, and in 10.5 seconds on the CPU alone. The method and the other numbers are in the [benchmark](docs/benchmark.md). [Try the live demo](https://arthur031221.github.io/Burstwise/).
+On the sample set it reads, groups and judges 166 photos in 1.9 seconds on a GPU, and in 10.5 seconds on the CPU alone. The method and the other numbers are in the [benchmark](docs/benchmark.md). [Try the live demo](https://arthur031221.github.io/Burstwise/).
 
 ## Before and after
 
@@ -35,7 +35,7 @@ The sample folder is 166 frames cut from four short videos, so many of them look
 | Reasons | None | A number for every verdict, for example `soft, 41% of the sharpest frame` |
 | Your originals | Safe | Safe. Only `.xmp` files are written, and `burstwise undo` restores them |
 
-A culling tool should show its work. Every verdict comes with a reason you can read, every threshold is a plain setting, and there's no hidden score.
+A culling tool should show its work. Every verdict has a reason you can read, every threshold is a plain setting, and there's no hidden score.
 
 ## Quick start
 
@@ -117,8 +117,8 @@ Lightroom Classic reads `.xmp` sidecars for raw files only. For JPEG, TIFF, PNG 
 ## What I checked and what I did not
 
 - I read the written sidecars back with ExifTool 13.59 and compared the rating, the label, the rejected value, and that existing `crs:` develop settings survive. That's in the test suite.
-- I have **not** opened the sidecars in Lightroom, Capture One or darktable. They're standard XMP, but I can't say how each program treats them.
-- I have **not** measured accuracy. The checks are heuristics. Blink scores can call a laugh or a squint closed, and sharpness can't tell focus blur from motion blur. I judged the sample results by eye and that's all.
+- I have not opened the sidecars in Lightroom, Capture One or darktable. They're standard XMP, but I can't say how each program treats them.
+- I haven't measured accuracy. The checks are heuristics. Blink scores can call a laugh or a squint closed, and sharpness can't tell focus blur from motion blur. I judged the sample results by eye and that's all.
 - Linux is the only system I tested. The speed figures come from one machine.
 - Grouping uses how photos look and when they were taken. Two different moments that look alike and fall within the scene gap can land in one group, so check the groups in the review app.
 - Adobe and paid tools such as Aftershoot and Narrative Select also do culling. Burstwise is for people who want it free, local and readable, with plain XMP as the output.
@@ -132,7 +132,7 @@ Lightroom Classic reads `.xmp` sidecars for raw files only. For JPEG, TIFF, PNG 
 - [Benchmark](docs/benchmark.md)
 - [Contributing](CONTRIBUTING.md)
 
-The review app speaks English, Traditional and Simplified Chinese, Japanese, Korean, Spanish, French, German and Brazilian Portuguese, with a dark and a light theme.
+In the review app each group shows its best frame large and folds long groups. The arrow keys, P, X, U and 1 to 5 work straight from the grid. The app speaks English, Traditional and Simplified Chinese, Japanese, Korean, Spanish, French, German and Brazilian Portuguese, with a dark and a light theme.
 
 ## Sample data
 
