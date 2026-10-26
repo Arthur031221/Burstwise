@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Burstwise</title>
+<meta name="description" content="Local photo culling: bursts grouped, blur and closed eyes flagged, best frame picked.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./" aria-label="Burstwise">
+    <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><use href="favicon.svg#mark"/></svg>
+    <span>Burstwise</span>
+  </a>
+  <div class="counts" id="counts" role="group" aria-label="Filter"></div>
+  <div class="tools">
+    <button class="icon" id="btn-settings" data-i18n-title="settings.title" aria-expanded="false">&#9881;</button>
+    <button class="icon" id="btn-theme" data-i18n-title="theme.toggle">&#9680;</button>
+    <label class="lang"><span class="sr" data-i18n="lang">Language</span>
+      <select id="lang" aria-label="Language"></select></label>
+  </div>
+</header>
+<div class="banner" id="banner" hidden>
+  <span data-i18n="demo.banner"></span>
+  <a href="https://github.com/Arthur031221/Burstwise#install" data-i18n="demo.cta"></a>
+</div>
+<section class="panel" id="panel" hidden>
+  <label><span data-i18n="settings.similarity"></span> <output id="o-sim"></output>
+    <input type="range" id="r-sim" min="0.5" max="0.95" step="0.01"></label>
+  <small data-i18n="settings.similarity.hint"></small>
+  <label><span data-i18n="settings.soft"></span> <output id="o-soft"></output>
+    <input type="range" id="r-soft" min="0.2" max="0.9" step="0.01"></label>
+  <small data-i18n="settings.soft.hint"></small>
+</section>
+<main id="main" aria-live="polite"></main>
+<footer class="bar" id="bar">
+  <button id="btn-xmp" class="primary" data-i18n="action.xmp"></button>
+  <button id="btn-export" data-i18n="action.export"></button>
+  <button id="btn-undo" data-i18n="action.undo"></button>
+  <button id="btn-help" class="icon" data-i18n-title="action.help">?</button>
+</footer>
+<div class="viewer" id="viewer" hidden role="dialog" aria-modal="true"></div>
+<dialog id="dialog"></dialog>
+<script type="module" src="app.js"></script>
+</body>
+</html>

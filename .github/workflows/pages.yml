@@ -1,0 +1,47 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: System packages
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install
+        run: pip install -e .
+      - name: Cache models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/burstwise
+          key: models-v1
+      - name: Build the sample photos
+        run: python examples/make_sample.py sample
+      - name: Build the site
+        run: python scripts/build_site.py sample site --results bench/results.json
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

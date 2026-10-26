@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "burstwise"
+version = "0.1.0"
+description = "Cull a thousand photos in minutes on your own GPU. Groups bursts, flags blur and closed eyes, picks the best frame and writes XMP ratings."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Arthur031221" }]
+keywords = ["photo", "culling", "xmp", "lightroom", "darktable", "burst", "raw", "photography"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Environment :: Web Environment",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Graphics",
+]
+dependencies = [
+  "numpy>=1.26",
+  "pillow>=10.3",
+  "pillow-heif>=0.16",
+  "rawpy>=0.21",
+  "exifread>=3.0",
+  "lxml>=5.0",
+  "scipy>=1.11",
+  "opencv-contrib-python>=4.9",
+  "onnxruntime-gpu>=1.20; sys_platform != 'darwin'",
+  "onnxruntime>=1.18; sys_platform == 'darwin'",
+  "mediapipe>=0.10.14",
+  "fastapi>=0.110",
+  "uvicorn>=0.29",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "httpx>=0.27", "playwright>=1.45"]
+
+[project.scripts]
+burstwise = "burstwise.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Arthur031221/Burstwise"
+Issues = "https://github.com/Arthur031221/Burstwise/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/burstwise"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/burstwise", "tests", "README*.md", "LICENSE", "docs"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "models: runs the real models (downloads about 100 MB on first use)",
+  "browser: drives the review app in Chromium through Playwright",
+]
+addopts = "-q -m 'not models and not browser'"
+filterwarnings = ["ignore::DeprecationWarning:starlette"]

@@ -1,0 +1,37 @@
+# Benchmark
+
+On the sample set Burstwise reads, groups, checks and ranks 166 photos in 1.9 seconds with the GPU (median of 3 runs, 88 photos per second).
+
+| Set | Files | Count | GPU, cold | CPU only, cold | Second run, cached |
+| --- | --- | --- | --- | --- | --- |
+| Sample frames | 1280 x 720 JPEG | 166 | 1.9 s (88/s) | 10.5 s (16/s) | 0.01 s |
+| Large JPEG | 5100 to 7700 px wide, 2.9 to 6.6 MB | 60 | 3.1 s (19/s) | 8.1 s (7/s) | 0.00 s |
+| RAW | ARW 24 MP, CR2 7 MP | 24 | 1.2 s (19/s) | 2.6 s (9/s) | 0.00 s |
+
+Machine: AMD Ryzen 5 7500F 6-Core Processor (12 threads), NVIDIA GeForce RTX 5090, Python 3.12.13. Measured on 2026-10-26.
+
+Per photo on the large JPEG set, one thread, median: decode 187.6 ms, faces 1.8 ms, sharpness 5.2 ms, embedding 7.5 ms.
+
+## Method
+
+- Each cell is the median of 3 runs of analyze_folder with an empty cache, after one untimed run to warm the file cache and the model.
+- Time covers file discovery, loading both models, preview decode, face landmarks and blink scores, sharpness, exposure, the DINOv2 embedding, grouping and ranking.
+- RAW files are read through their embedded preview. Every file in this set had one of at least 1000 px. A RAW file without one is decoded at half size, which is slower.
+- The sample set is 166 frames from four Creative Commons videos, see examples/CREDITS.md. The large JPEG and RAW sets are CC0 files copied several times, so speed is meaningful and grouping on them is not.
+- Photo workers: the default of min(8, CPU threads). The run had OMP_NUM_THREADS=2, so native math libraries used two threads each. Unset it for a fair CPU-only figure.
+
+## What this does not say
+
+- No accuracy figure is claimed. The checks are heuristics with documented thresholds.
+- Blink scores come from MediaPipe blendshapes and can call a laugh or a squint closed.
+- Speed depends on disk and CPU more than on the GPU: the embedding is a small share of the time on large files, see the stage breakdown in results.json.
+- The large JPEG and RAW sets contain no faces, so the face stage is nearly free there. Photos with faces cost more.
+- One machine. Numbers on other hardware will differ.
+
+## Run it yourself
+
+```
+python bench/run.py prepare DIR
+python bench/run.py measure DIR SAMPLE_DIR
+python bench/run.py render
+```

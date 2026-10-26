@@ -1,0 +1,430 @@
+// Burstwise review app. Plain ES modules, no build step. Runs against the local API,
+// or against a static state.json when the page sets window.BURSTWISE_DEMO (GitHub Pages).
+const DEMO = window.BURSTWISE_DEMO === true;
+const STATES = ["pick", "review", "alt", "reject"];
+const LANGS = [
+  ["en", "English"], ["zh-TW", "繁體中文"], ["zh-CN", "简体中文"], ["ja", "日本語"],
+  ["ko", "한국어"], ["es", "Español"], ["fr", "Français"], ["de", "Deutsch"],
+  ["pt-BR", "Português (Brasil)"],
+];
+const $ = (id) => document.getElementById(id);
+
+let strings = {};
+let fallback = {};
+let state = null;
+let decisions = {};
+let filter = null;
+let open = null;
+let view = { compare: false, faces: false, zoom: false };
+
+function h(tag, attrs = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") el.className = v;
+    else if (k === "style") el.style.cssText = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, "");
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid != null && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(kid));
+  }
+  return el;
+}
+
+// ---- i18n -------------------------------------------------------------------------
+function t(key, vars = {}) {
+  const text = strings[key] ?? fallback[key] ?? key;
+  return text.replace(/\{(\w+)\}/g, (_, name) => vars[name] ?? "");
+}
+
+function pickLanguage() {
+  const saved = localStorage.getItem("bw-lang");
+  if (saved && LANGS.some(([code]) => code === saved)) return saved;
+  for (const raw of navigator.languages || [navigator.language || "en"]) {
+    const tag = raw.toLowerCase();
+    if (tag.startsWith("zh")) return /tw|hk|mo|hant/.test(tag) ? "zh-TW" : "zh-CN";
+    if (tag.startsWith("pt")) return "pt-BR";
+    const hit = LANGS.find(([code]) => code.toLowerCase() === tag.slice(0, 2));
+    if (hit) return hit[0];
+  }
+  return "en";
+}
+
+async function loadStrings(lang) {
+  const get = async (code) => (await fetch(`locales/${code}.json`)).json();
+  fallback = fallback.app_title ? fallback : await get("en");
+  strings = lang === "en" ? fallback : await get(lang);
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    el.title = t(el.dataset.i18nTitle);
+    el.setAttribute("aria-label", el.title);
+  });
+}
+
+async function setLanguage(lang) {
+  localStorage.setItem("bw-lang", lang);
+  await loadStrings(lang);
+  $("lang").value = lang;
+  render();
+  if (open) renderViewer();
+}
+
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("bw-theme", theme);
+}
+
+// ---- data -------------------------------------------------------------------------
+async function api(path, method = "GET", body) {
+  const res = await fetch(path, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+  return res.json();
+}
+
+const thumbUrl = (p, size) => (DEMO ? `thumbs/${p.id}.jpg` : `api/thumb/${p.id}?size=${size}`);
+const eff = (p) => decisions[p.id]?.state || p.state;
+const byId = () => Object.fromEntries(state.photos.map((p) => [p.id, p]));
+
+function toast(text) {
+  const el = h("div", { class: "toast", role: "status" }, text);
+  document.body.append(el);
+  setTimeout(() => el.remove(), 3200);
+}
+
+async function load() {
+  if (DEMO) {
+    state = await api("state.json");
+    decisions = JSON.parse(localStorage.getItem("bw-demo-decisions") || "{}");
+    return render();
+  }
+  for (;;) {
+    state = await api("api/state");
+    if (state.job.state === "error") throw new Error(state.job.error);
+    if (state.job.state === "done" && state.photos) break;
+    renderProgress(state.job);
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  decisions = state.decisions || {};
+  $("r-sim").value = state.settings.similarity;
+  $("r-soft").value = state.settings.soft_ratio;
+  render();
+}
+
+function renderProgress(job) {
+  const pct = job.total ? Math.round((100 * job.done) / job.total) : 0;
+  $("main").replaceChildren(
+    h("div", { class: "progress" },
+      h("h2", {}, t("analyzing", { done: job.done, total: job.total })),
+      h("div", { class: "meter", role: "progressbar", "aria-valuenow": pct },
+        h("span", { style: `width:${pct}%` })),
+      h("p", {}, t("analyzing.hint")),
+      h("small", {}, job.name || ""))
+  );
+}
+
+async function decide(id, patch) {
+  const next = patch === null ? {} : { ...(decisions[id] || {}), ...patch };
+  for (const key of Object.keys(next)) if (next[key] == null) delete next[key];
+  if (Object.keys(next).length) decisions[id] = next;
+  else delete decisions[id];
+  if (DEMO) localStorage.setItem("bw-demo-decisions", JSON.stringify(decisions));
+  else await api(`api/decision/${id}`, "PUT", next);
+  render();
+  if (open) renderViewer();
+}
+
+// ---- grid -------------------------------------------------------------------------
+function visible() {
+  return state.photos.filter((p) => !filter || eff(p) === filter);
+}
+
+function renderCounts() {
+  const tally = Object.fromEntries(STATES.map((s) => [s, 0]));
+  state.photos.forEach((p) => tally[eff(p)]++);
+  const chips = STATES.map((s) =>
+    h("button", {
+      class: "chip", style: `--c:var(--${s})`, "aria-pressed": filter === s,
+      onclick: () => { filter = filter === s ? null : s; render(); },
+    }, h("i"), t(`state.${s}`), " ", h("b", {}, tally[s])));
+  $("counts").replaceChildren(
+    h("span", { class: "chip" }, t("photos", { n: state.photos.length }), " · ",
+      t("groups", { n: state.groups.length })),
+    ...chips
+  );
+}
+
+function card(p) {
+  const s = eff(p);
+  const note = [...p.reasons, ...p.problems].map(reasonText)[0] || "";
+  const own = decisions[p.id];
+  return h("button", {
+    class: "card", "data-state": s, onclick: () => openViewer(p.id),
+    "aria-label": `${p.name}, ${t(`state.${s}`)}`,
+  },
+    h("img", { src: thumbUrl(p, 480), loading: "lazy", alt: p.name, decoding: "async" }),
+    h("span", { class: "badge", style: `--c:var(--${s})` }, t(`state.${s}`)),
+    own && h("span", { class: "own" }, [own.state && t("override"), own.rating && `★${own.rating}`]
+      .filter(Boolean).join(" ")),
+    note && h("span", { class: "why" }, note));
+}
+
+function render() {
+  if (!state || !state.photos) return;
+  renderCounts();
+  $("banner").hidden = !DEMO;
+  $("btn-settings").hidden = DEMO;
+  if (!state.photos.length) return $("main").replaceChildren(h("p", { class: "empty" }, t("empty")));
+  const shown = new Set(visible().map((p) => p.id));
+  const photos = byId();
+  const sections = [];
+  state.groups.forEach((ids, g) => {
+    const members = ids.filter((id) => shown.has(id)).map((id) => photos[id]);
+    if (!members.length) return;
+    const all = ids.map((id) => photos[id]);
+    const span = Math.round(all[all.length - 1].taken - all[0].taken);
+    sections.push(h("section", { class: "group" },
+      h("h3", {}, h("b", {}, t("group.title", { n: g + 1 })), t("group.frames", { n: ids.length }), "·",
+        t("group.span", { s: span })),
+      h("div", { class: "strip" }, members.map(card))));
+  });
+  $("main").replaceChildren(...sections);
+}
+
+function reasonText(item) {
+  return t(`reason.${item.code}`, item);
+}
+
+// ---- viewer -----------------------------------------------------------------------
+function groupPick(p) {
+  const ids = state.groups[p.group];
+  const photos = byId();
+  const group = ids.map((id) => photos[id]);
+  const chosen = group.find((q) => decisions[q.id]?.state === "pick" && q.id !== p.id);
+  const best = chosen || group.find((q) => q.rank === 1) || group[0];
+  return best.id !== p.id ? best : group.find((q) => q.id !== p.id && q.rank === 2) || null;
+}
+
+function openViewer(id) {
+  open = id;
+  $("viewer").hidden = false;
+  document.body.style.overflow = "hidden";
+  renderViewer();
+  $("viewer").querySelector("[data-close]")?.focus();
+}
+
+function closeViewer() {
+  open = null;
+  $("viewer").hidden = true;
+  document.body.style.overflow = "";
+}
+
+function pane(p, caption) {
+  const blinkAt = state.settings.blink_closed;
+  const inner = h("div", { class: "inner" },
+    h("img", { src: thumbUrl(p, 1600), alt: p.name }),
+    view.faces && h("div", { class: "faces" }, p.faces.map((f) => {
+      const [x, y, w, hgt] = f.box;
+      const closed = f.blink >= blinkAt;
+      return h("div", {
+        class: `fbox${closed ? " closed" : ""}`,
+        style: `left:${x * 100}%;top:${y * 100}%;width:${w * 100}%;height:${hgt * 100}%`,
+      }, h("em", {}, t("detail.blink", { n: Math.round(f.blink * 100) })));
+    })));
+  const zoomer = h("div", { class: `zoomer${view.zoom && p.faces.length ? " zoomed" : ""}` }, inner);
+  if (p.faces.length) {
+    const big = p.faces.reduce((a, b) => (a.box[2] * a.box[3] >= b.box[2] * b.box[3] ? a : b));
+    zoomer.style.setProperty("--ox", `${(big.box[0] + big.box[2] / 2) * 100}%`);
+    zoomer.style.setProperty("--oy", `${(big.box[1] + big.box[3] / 2) * 100}%`);
+  }
+  return h("figure", { class: "v-pane", style: "margin:0" }, zoomer, h("figcaption", {}, caption));
+}
+
+function renderViewer() {
+  const list = visible();
+  const index = list.findIndex((p) => p.id === open);
+  const p = state.photos.find((q) => q.id === open);
+  if (!p) return closeViewer();
+  const s = eff(p);
+  const other = view.compare ? groupPick(p) : null;
+  const btn = (key, label, fn, on) =>
+    h("button", { onclick: fn, "aria-pressed": on == null ? null : String(on) }, t(label), key && ` (${key})`);
+  const head = h("div", { class: "v-head" },
+    h("h2", {}, p.name, " ", h("span", { class: "badge", style: `position:static;--c:var(--${s})` }, t(`state.${s}`))),
+    btn("←", "viewer.prev", () => step(-1)), btn("→", "viewer.next", () => step(1)),
+    btn("C", "viewer.compare", () => { view.compare = !view.compare; renderViewer(); }, view.compare),
+    btn("F", "viewer.faces", () => { view.faces = !view.faces; renderViewer(); }, view.faces),
+    btn("Z", "viewer.zoom", () => { view.zoom = !view.zoom; renderViewer(); }, view.zoom),
+    h("button", { "data-close": true, onclick: closeViewer }, t("viewer.close"), " (Esc)"));
+  const stage = h("div", { class: "v-stage" },
+    other && pane(other, t("compare.with")),
+    pane(p, other ? t("compare.this") : `${index + 1} / ${list.length}`));
+  const good = p.reasons.map((r) => h("li", { class: "good" }, reasonText(r)));
+  const bad = p.problems.map((r) => h("li", { class: "bad" }, reasonText(r)));
+  const info = h("div", { class: "v-info" },
+    h("div", {}, h("ul", {}, good, bad), !good.length && !bad.length && t("detail.nothing")),
+    h("dl", {},
+      h("dt", {}, t("detail.sharp")), h("dd", {}, p.sharp),
+      h("dt", {}, t("detail.highlights")), h("dd", {}, `${(p.highlights * 100).toFixed(1)}%`),
+      h("dt", {}, t("detail.shadows")), h("dd", {}, `${(p.shadows * 100).toFixed(1)}%`),
+      h("dt", {}, t("detail.faces")), h("dd", {}, p.faces.length),
+      h("dt", {}, t("detail.rank")), h("dd", {}, `${p.rank} / ${state.groups[p.group].length}`)),
+    h("div", { class: "v-act" },
+      h("button", { onclick: () => decide(p.id, { state: "pick" }) }, t("state.pick"), " (P)"),
+      h("button", { onclick: () => decide(p.id, { state: "reject" }) }, t("state.reject"), " (X)"),
+      h("button", { onclick: () => decide(p.id, null) }, t("viewer.auto"), " (U)"),
+      [1, 2, 3, 4, 5].map((n) =>
+        h("button", { onclick: () => decide(p.id, { rating: n }), "aria-label": `${n}` }, `★${n}`))));
+  $("viewer").replaceChildren(head, stage, info);
+}
+
+function step(delta) {
+  const list = visible();
+  const i = list.findIndex((p) => p.id === open);
+  const next = list[(i + delta + list.length) % list.length];
+  if (next) {
+    open = next.id;
+    view.zoom = false;
+    renderViewer();
+  }
+}
+
+// ---- actions ----------------------------------------------------------------------
+function sidecarText(p) {
+  const s = eff(p);
+  const own = decisions[p.id] || {};
+  let rating = own.rating;
+  let label = null;
+  if (s === "pick") { rating ??= 4; label = "Green"; }
+  else if (s === "reject") { rating = -1; label = "Red"; }
+  else if (s === "review") label = "Yellow";
+  const lines = [`xmp:Rating="${rating ?? ""}"`, `xmp:Label="${label ?? ""}"`,
+    `burstwise:Verdict="${s}"`, `burstwise:Reason="${[...p.reasons, ...p.problems].map(reasonText).join("; ")}"`];
+  return `<rdf:Description rdf:about=""\n  ${lines.filter((l) => !l.endsWith('=""')).join("\n  ")}/>`;
+}
+
+function showDialog(title, body, actions) {
+  const dialog = $("dialog");
+  dialog.replaceChildren(h("h2", {}, title), body,
+    h("div", { class: "row" }, actions.map(([label, fn, primary]) =>
+      h("button", { class: primary ? "primary" : "", onclick: async () => {
+        if (await fn?.() !== false) dialog.close();
+      } }, label))));
+  if (!dialog.open) dialog.showModal();
+}
+
+async function xmpDialog() {
+  if (DEMO) {
+    const sample = state.photos.find((p) => eff(p) === "pick") || state.photos[0];
+    return showDialog(t("xmp.title"), h("div", {}, h("p", {}, t("xmp.demo")),
+      h("pre", {}, `${sample.name}\n${sidecarText(sample)}`)), [[t("cancel")]]);
+  }
+  const naming = h("select", {}, ["both", "adobe", "darktable"].map((n) => h("option", { value: n }, t(`xmp.naming.${n}`))));
+  const overwrite = h("input", { type: "checkbox" });
+  const summary = h("p", {});
+  const refresh = async () => {
+    const { tally } = await api("api/xmp", "POST", { naming: naming.value, overwrite: overwrite.checked, dry_run: true });
+    summary.textContent = t("xmp.dry", tally);
+  };
+  naming.onchange = overwrite.onchange = refresh;
+  await refresh();
+  showDialog(t("xmp.title"), h("div", {}, summary, h("label", {}, t("xmp.naming"), naming),
+    h("label", {}, overwrite, t("xmp.overwrite")), h("p", {}, h("small", {}, t("xmp.safe")))),
+  [[t("cancel")], [t("xmp.write"), async () => {
+    const { tally } = await api("api/xmp", "POST", { naming: naming.value, overwrite: overwrite.checked });
+    toast(t("xmp.done", tally));
+  }, true]]);
+}
+
+function exportDialog() {
+  if (DEMO) return showDialog(t("action.export"), h("p", {}, t("demo.local")), [[t("cancel")]]);
+  const dest = h("input", { type: "text", placeholder: "/path/to/keepers" });
+  showDialog(t("action.export"), h("label", {}, t("export.dest"), dest), [[t("cancel")],
+    [t("export.copy"), async () => {
+      try {
+        const out = await api("api/export", "POST", { dest: dest.value });
+        toast(t("export.done", { n: out.copied }));
+      } catch (e) { toast(e.message); return false; }
+    }, true]]);
+}
+
+async function undo() {
+  if (DEMO) return toast(t("demo.local"));
+  const { restored } = await api("api/undo", "POST");
+  toast(restored ? t("undo.done", { n: restored }) : t("undo.none"));
+}
+
+function helpDialog() {
+  const rows = [["← →", "help.nav"], ["P", "help.pick"], ["X", "help.reject"], ["U", "help.auto"],
+    ["1 – 5", "help.rate"], ["C", "help.compare"], ["F", "help.faces"], ["Z", "help.zoom"], ["Esc", "help.close"]];
+  showDialog(t("action.help"), h("table", {}, rows.map(([k, label]) =>
+    h("tr", {}, h("td", {}, h("kbd", {}, k)), h("td", {}, t(label))))), [[t("viewer.close")]]);
+}
+
+let timer;
+function settingsChanged() {
+  $("o-sim").textContent = Number($("r-sim").value).toFixed(2);
+  $("o-soft").textContent = Number($("r-soft").value).toFixed(2);
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    const next = await api("api/settings", "POST",
+      { similarity: Number($("r-sim").value), soft_ratio: Number($("r-soft").value) });
+    state = { ...next, decisions };
+    render();
+  }, 250);
+}
+
+function onKey(e) {
+  if (e.target.matches("input, select, textarea") || $("dialog").open || e.metaKey || e.ctrlKey) return;
+  if (e.key === "?") return helpDialog();
+  if (!open) return;
+  const p = state.photos.find((q) => q.id === open);
+  const keys = {
+    Escape: closeViewer, ArrowLeft: () => step(-1), ArrowRight: () => step(1),
+    p: () => decide(p.id, { state: "pick" }), x: () => decide(p.id, { state: "reject" }),
+    u: () => decide(p.id, null),
+    c: () => { view.compare = !view.compare; renderViewer(); },
+    f: () => { view.faces = !view.faces; renderViewer(); },
+    z: () => { view.zoom = !view.zoom; renderViewer(); },
+  };
+  if (/^[1-5]$/.test(e.key)) return decide(p.id, { rating: Number(e.key) });
+  const fn = keys[e.key] || keys[e.key.toLowerCase()];
+  if (fn) { e.preventDefault(); fn(); }
+}
+
+async function main() {
+  setTheme(localStorage.getItem("bw-theme") || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+  const select = $("lang");
+  LANGS.forEach(([code, name]) => select.append(h("option", { value: code }, name)));
+  select.onchange = () => setLanguage(select.value);
+  await loadStrings(pickLanguage());
+  select.value = document.documentElement.lang;
+  $("btn-theme").onclick = () => setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+  $("btn-settings").onclick = () => {
+    const panel = $("panel");
+    panel.hidden = !panel.hidden;
+    $("btn-settings").setAttribute("aria-expanded", String(!panel.hidden));
+  };
+  $("btn-xmp").onclick = xmpDialog;
+  $("btn-export").onclick = exportDialog;
+  $("btn-undo").onclick = undo;
+  $("btn-help").onclick = helpDialog;
+  $("r-sim").oninput = $("r-soft").oninput = settingsChanged;
+  $("r-sim").value = 0.8;
+  $("r-soft").value = 0.55;
+  $("o-sim").textContent = "0.80";
+  $("o-soft").textContent = "0.55";
+  document.addEventListener("keydown", onKey);
+  try {
+    await load();
+  } catch (e) {
+    $("main").replaceChildren(h("p", { class: "empty" }, `${t("error.load")}: ${e.message}`));
+  }
+}
+
+main();
