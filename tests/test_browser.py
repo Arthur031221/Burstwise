@@ -238,7 +238,9 @@ def test_closing_the_viewer_on_a_folded_frame_unfolds_the_group(long_page):
 def test_a_rejected_best_frame_hands_the_hero_to_the_next_one(long_page):
     long_page.locator(".card.hero").focus()
     long_page.keyboard.press("x")
-    long_page.wait_for_function("document.querySelector('.card.hero').getAttribute('aria-label').startsWith('S01')")
+    long_page.wait_for_function(
+        "document.querySelector('.card.hero').getAttribute('aria-label').startsWith('S01')"
+    )
     assert long_page.locator(".card").count() >= 9
 
 
