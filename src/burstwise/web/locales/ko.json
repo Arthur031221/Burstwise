@@ -63,6 +63,7 @@
  "undo.done": "사이드카 {n}개를 복원했습니다",
  "undo.none": "되돌릴 내용이 없습니다",
  "help.nav": "사진 사이 이동",
+ "help.group": "이전 또는 다음 그룹",
  "help.pick": "선택",
  "help.reject": "제외",
  "help.auto": "자동 판정으로 되돌리기",

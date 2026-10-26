@@ -63,6 +63,7 @@
  "undo.done": "{n} 件のサイドカーを復元しました",
  "undo.none": "元に戻す操作はありません",
  "help.nav": "写真を移動",
+ "help.group": "前後のグループへ移動",
  "help.pick": "採用",
  "help.reject": "不採用",
  "help.auto": "自動判定に戻す",

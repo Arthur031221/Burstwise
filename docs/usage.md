@@ -56,12 +56,13 @@ with the group pick, see the detected faces with blink scores, and zoom on a fac
 
 | Key | Action |
 | --- | --- |
-| `P` / `X` / `U` | pick, reject, back to automatic |
+| `P` / `X` / `U` | pick, reject, back to automatic, then open the next photo |
 | `1` to `5` | set a star rating |
 | `C` | compare with the group pick |
 | `F` | show faces and blink scores |
 | `Z` | zoom |
 | `Left` / `Right` | previous and next photo |
+| `Up` / `Down` | previous and next group |
 | `Esc` | close the photo |
 | `?` | list the keys |
 

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Arthur031221/Burstwise/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Arthur031221/Burstwise/ci.yml?branch=master&label=tests&labelColor=0e1015&color=ffb020" alt="tests"></a>
+  <a href="https://github.com/Arthur031221/Burstwise/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Arthur031221/Burstwise/ci.yml?branch=main&label=tests&labelColor=0e1015&color=ffb020" alt="tests"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-ffb020?labelColor=0e1015" alt="python 3.10+">
   <img src="https://img.shields.io/badge/license-MIT-ffb020?labelColor=0e1015" alt="MIT license">
   <a href="https://arthur031221.github.io/Burstwise/"><img src="https://img.shields.io/badge/live%20demo-open-ffb020?labelColor=0e1015" alt="live demo"></a>
@@ -18,7 +18,7 @@
   <img src="assets/demo.gif" alt="Burstwise culling a folder of 166 photos and opening the review app" width="880">
 </p>
 
-Burstwise culls a shoot on your own machine. It groups photos of the same moment, flags blur, closed eyes and clipped exposure, picks the best frame in each group and writes the result as XMP ratings and colour labels next to your files. Nothing is uploaded and no original is touched.
+Burstwise culls a shoot on your own machine. It groups photos of the same moment, flags blur, closed eyes and clipped exposure, picks the best frame in each group and writes the result as XMP ratings and colour labels next to your files. Nothing gets uploaded and no original is touched.
 
 On the sample set it reads, groups and judges **166 photos in 1.9 seconds** on a GPU, and in 10.5 seconds on the CPU alone. The method and the other numbers are in the [benchmark](docs/benchmark.md). [Try the live demo](https://arthur031221.github.io/Burstwise/).
 
@@ -35,7 +35,7 @@ The sample folder is 166 frames cut from four short videos, so many of them look
 | Reasons | None | A number for every verdict, for example `soft, 41% of the sharpest frame` |
 | Your originals | Safe | Safe. Only `.xmp` files are written, and `burstwise undo` restores them |
 
-A culling tool should show its work. Every verdict has a reason you can read, every threshold is a plain setting, and there's no hidden score.
+A culling tool should show its work. Every verdict comes with a reason you can read, every threshold is a plain setting, and there's no hidden score.
 
 ## Quick start
 
@@ -55,7 +55,7 @@ The first run downloads two model files, about 90 MB in total, and checks their 
 pipx install git+https://github.com/Arthur031221/Burstwise
 ```
 
-For the GPU you need a working CUDA 12 setup for `onnxruntime-gpu`. Without it Burstwise falls back to the CPU on its own, or you can pass `--cpu`. I develop and test on Ubuntu with an NVIDIA GPU.
+For the GPU you need a working CUDA 12 setup for `onnxruntime-gpu`. Without it Burstwise falls back to the CPU on its own, or you can pass `--cpu`. I develop and test on Ubuntu with an NVIDIA GPU. On a minimal server, a container or WSL, install the graphics libraries first with `sudo apt install libegl1 libgles2`, or Burstwise stops with a message about the face model.
 
 </details>
 
@@ -111,6 +111,8 @@ pip install -e ".[dev]"
 | reject | rating -1 (rejected), label Red |
 
 Sidecars are merged, not replaced. Edits already in a Lightroom or darktable sidecar stay, and only `xmp:Rating`, `xmp:Label` and a `burstwise:Verdict` and `burstwise:Reason` pair are set. If a sidecar written by someone else already holds a rating (rejected counts) or a label, the photo is skipped unless you pass `--overwrite`. Sidecars Burstwise wrote earlier are updated on the next run.
+
+Lightroom Classic reads `.xmp` sidecars for raw files only. For JPEG, TIFF, PNG and HEIC it keeps XMP inside the file, so the ratings and labels written here won't show up in Lightroom for those formats. darktable reads sidecars for every format. That comes from Adobe's documentation and I haven't tried it in Lightroom.
 
 ## What I checked and what I did not
 

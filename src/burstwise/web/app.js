@@ -128,15 +128,43 @@ function renderProgress(job) {
   );
 }
 
-async function decide(id, patch) {
-  const next = patch === null ? {} : { ...(decisions[id] || {}), ...patch };
+async function decide(id, patch, advance = false) {
+  const before = decisions[id];
+  const next = patch === null ? {} : { ...(before || {}), ...patch };
   for (const key of Object.keys(next)) if (next[key] == null) delete next[key];
+  const list = visible();
+  const after = advance && open === id ? list[list.findIndex((q) => q.id === id) + 1] : null;
   if (Object.keys(next).length) decisions[id] = next;
   else delete decisions[id];
-  if (DEMO) localStorage.setItem("bw-demo-decisions", JSON.stringify(decisions));
-  else await api(`api/decision/${id}`, "PUT", next);
-  render();
+  const p = state.photos.find((q) => q.id === id);
+  if (open && advance) toast(`${p.name}: ${t(`state.${eff(p)}`)}`);
+  refresh(p);
+  if (after) {
+    open = after.id;
+    view.zoom = false;
+  }
   if (open) renderViewer();
+  try {
+    if (DEMO) localStorage.setItem("bw-demo-decisions", JSON.stringify(decisions));
+    else await api(`api/decision/${id}`, "PUT", next);
+  } catch (e) {
+    if (before) decisions[id] = before;
+    else delete decisions[id];
+    refresh(p);
+    if (open) renderViewer();
+    toast(e.message);
+  }
+}
+
+// Only the card that changed is redrawn unless a filter is on, so a long grid keeps its
+// scroll position and its images.
+function refresh(p) {
+  const old = document.querySelector(`.card[data-id="${p.id}"]`);
+  if (filter || !old) return render();
+  renderCounts();
+  const fresh = card(p);
+  fresh.querySelector("img").replaceWith(old.querySelector("img"));
+  old.replaceWith(fresh);
 }
 
 // ---- grid -------------------------------------------------------------------------
@@ -164,7 +192,7 @@ function card(p) {
   const note = [...p.reasons, ...p.problems].map(reasonText)[0] || "";
   const own = decisions[p.id];
   return h("button", {
-    class: "card", "data-state": s, onclick: () => openViewer(p.id),
+    class: "card", "data-state": s, "data-id": p.id, onclick: () => openViewer(p.id),
     "aria-label": `${p.name}, ${t(`state.${s}`)}`,
   },
     h("img", { src: thumbUrl(p, 480), loading: "lazy", alt: p.name, decoding: "async" }),
@@ -219,9 +247,13 @@ function openViewer(id) {
 }
 
 function closeViewer() {
+  const last = open;
   open = null;
   $("viewer").hidden = true;
   document.body.style.overflow = "";
+  const card = last && document.querySelector(`.card[data-id="${last}"]`);
+  card?.scrollIntoView({ block: "center" });
+  card?.focus({ preventScroll: true });
 }
 
 function pane(p, caption) {
@@ -275,12 +307,25 @@ function renderViewer() {
       h("dt", {}, t("detail.faces")), h("dd", {}, p.faces.length),
       h("dt", {}, t("detail.rank")), h("dd", {}, `${p.rank} / ${state.groups[p.group].length}`)),
     h("div", { class: "v-act" },
-      h("button", { onclick: () => decide(p.id, { state: "pick" }) }, t("state.pick"), " (P)"),
-      h("button", { onclick: () => decide(p.id, { state: "reject" }) }, t("state.reject"), " (X)"),
-      h("button", { onclick: () => decide(p.id, null) }, t("viewer.auto"), " (U)"),
+      h("button", { onclick: () => decide(p.id, { state: "pick" }, true) }, t("state.pick"), " (P)"),
+      h("button", { onclick: () => decide(p.id, { state: "reject" }, true) }, t("state.reject"), " (X)"),
+      h("button", { onclick: () => decide(p.id, null, true) }, t("viewer.auto"), " (U)"),
       [1, 2, 3, 4, 5].map((n) =>
         h("button", { onclick: () => decide(p.id, { rating: n }), "aria-label": `${n}` }, `★${n}`))));
   $("viewer").replaceChildren(head, stage, info);
+  const upcoming = list[index + 1];
+  if (upcoming) new Image().src = thumbUrl(upcoming, 1600);
+}
+
+function jumpGroup(delta) {
+  const list = visible();
+  const here = state.photos.find((q) => q.id === open).group;
+  const groups = [...new Set(list.map((q) => q.group))].sort((a, b) => a - b);
+  const target = delta > 0 ? groups.find((g) => g > here) : groups.reverse().find((g) => g < here);
+  if (target == null) return;
+  open = list.find((q) => q.group === target).id;
+  view.zoom = false;
+  renderViewer();
 }
 
 function step(delta) {
@@ -360,7 +405,7 @@ async function undo() {
 }
 
 function helpDialog() {
-  const rows = [["← →", "help.nav"], ["P", "help.pick"], ["X", "help.reject"], ["U", "help.auto"],
+  const rows = [["← →", "help.nav"], ["↑ ↓", "help.group"], ["P", "help.pick"], ["X", "help.reject"], ["U", "help.auto"],
     ["1 – 5", "help.rate"], ["C", "help.compare"], ["F", "help.faces"], ["Z", "help.zoom"], ["Esc", "help.close"]];
   showDialog(t("action.help"), h("table", {}, rows.map(([k, label]) =>
     h("tr", {}, h("td", {}, h("kbd", {}, k)), h("td", {}, t(label))))), [[t("viewer.close")]]);
@@ -379,15 +424,25 @@ function settingsChanged() {
   }, 250);
 }
 
+function trapFocus(e) {
+  const items = [...$("viewer").querySelectorAll("button:not([disabled])")];
+  const at = items.indexOf(document.activeElement);
+  if (!items.length || (e.shiftKey ? at > 0 : at >= 0 && at < items.length - 1)) return;
+  e.preventDefault();
+  items[e.shiftKey ? items.length - 1 : 0].focus();
+}
+
 function onKey(e) {
   if (e.target.matches("input, select, textarea") || $("dialog").open || e.metaKey || e.ctrlKey) return;
   if (e.key === "?") return helpDialog();
   if (!open) return;
+  if (e.key === "Tab") return trapFocus(e);
   const p = state.photos.find((q) => q.id === open);
   const keys = {
     Escape: closeViewer, ArrowLeft: () => step(-1), ArrowRight: () => step(1),
-    p: () => decide(p.id, { state: "pick" }), x: () => decide(p.id, { state: "reject" }),
-    u: () => decide(p.id, null),
+    ArrowUp: () => jumpGroup(-1), ArrowDown: () => jumpGroup(1),
+    p: () => decide(p.id, { state: "pick" }, true), x: () => decide(p.id, { state: "reject" }, true),
+    u: () => decide(p.id, null, true),
     c: () => { view.compare = !view.compare; renderViewer(); },
     f: () => { view.faces = !view.faces; renderViewer(); },
     z: () => { view.zoom = !view.zoom; renderViewer(); },

@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Arthur031221/Burstwise/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Arthur031221/Burstwise/ci.yml?branch=master&label=tests&labelColor=0e1015&color=ffb020" alt="tests"></a>
+  <a href="https://github.com/Arthur031221/Burstwise/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Arthur031221/Burstwise/ci.yml?branch=main&label=tests&labelColor=0e1015&color=ffb020" alt="tests"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-ffb020?labelColor=0e1015" alt="python 3.10+">
   <img src="https://img.shields.io/badge/license-MIT-ffb020?labelColor=0e1015" alt="MIT license">
   <a href="https://arthur031221.github.io/Burstwise/"><img src="https://img.shields.io/badge/live%20demo-open-ffb020?labelColor=0e1015" alt="live demo"></a>
@@ -55,7 +55,7 @@ Beim ersten Start werden zwei Modelldateien mit zusammen etwa 90 MB heruntergela
 pipx install git+https://github.com/Arthur031221/Burstwise
 ```
 
-Für die GPU brauchen Sie eine funktionierende CUDA-12-Umgebung für `onnxruntime-gpu`. Ohne sie fällt Burstwise von selbst auf die CPU zurück, oder Sie geben `--cpu` an. Ich entwickle und teste unter Ubuntu mit einer NVIDIA-GPU.
+Für die GPU brauchen Sie eine funktionierende CUDA-12-Umgebung für `onnxruntime-gpu`. Ohne sie fällt Burstwise von selbst auf die CPU zurück, oder Sie geben `--cpu` an. Ich entwickle und teste unter Ubuntu mit einer NVIDIA-GPU. Auf einem minimalen Server, in einem Container oder unter WSL installieren Sie zuerst die Grafikbibliotheken mit `sudo apt install libegl1 libgles2`, sonst bricht Burstwise mit einer Meldung zum Gesichtsmodell ab.
 
 </details>
 
@@ -111,6 +111,8 @@ Die [Architektur](docs/architecture.md) enthält die Einzelheiten, die [Konfigur
 | reject | Bewertung -1 (abgelehnt), Label Red |
 
 Sidecar-Dateien werden zusammengeführt, nicht ersetzt. Bearbeitungen, die schon in einem Lightroom- oder darktable-Sidecar stehen, bleiben erhalten, und nur `xmp:Rating`, `xmp:Label` sowie das Paar `burstwise:Verdict` und `burstwise:Reason` werden gesetzt. Enthält ein von anderer Software geschriebenes Sidecar schon eine Bewertung (auch abgelehnt) oder ein Label, wird das Foto übersprungen, außer Sie geben `--overwrite` an. Sidecars, die Burstwise früher geschrieben hat, werden beim nächsten Lauf einfach aktualisiert.
+
+Lightroom Classic liest `.xmp`-Sidecars nur für Raw-Dateien. Bei JPEG, TIFF, PNG und HEIC liegt das XMP in der Datei selbst, deshalb erscheinen die hier geschriebenen Bewertungen und Farbmarkierungen für diese Formate nicht in Lightroom. darktable liest Sidecars für jedes Format. Das stammt aus der Adobe-Dokumentation, ich habe es in Lightroom nicht ausprobiert.
 
 ## Was ich geprüft habe und was nicht
 

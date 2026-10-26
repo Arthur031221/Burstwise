@@ -33,6 +33,9 @@ def build_demo(sample: Path, out: Path) -> dict:
     cache = Cache(Path(tempfile.mkdtemp()) / "demo.db")
     library = analyze_folder(sample, Settings(), cache=cache)
     cache.close()
+    if library.failed:
+        shown = "; ".join(f"{Path(f).name}: {e}" for f, e in library.failed[:3])
+        raise SystemExit(f"build_site: {len(library.failed)} sample photos failed: {shown}")
     session = Session(sample, Settings(), use_gpu=False)
     session.library = library
     state = state_payload(session)

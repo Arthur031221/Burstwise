@@ -63,6 +63,7 @@
  "undo.done": "已還原 {n} 個附屬檔",
  "undo.none": "沒有可復原的項目",
  "help.nav": "在照片間移動",
+ "help.group": "上一組或下一組",
  "help.pick": "精選",
  "help.reject": "淘汰",
  "help.auto": "回到自動判斷",

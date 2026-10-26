@@ -92,3 +92,25 @@ def test_phone_layout_does_not_scroll_sideways(page):
     page.set_viewport_size({"width": 390, "height": 800})
     page.wait_for_timeout(300)
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+def test_pick_advances_to_the_next_photo_and_keeps_the_grid(page, app):
+    cards = page.locator(".card")
+    first = cards.nth(0)
+    first_id = first.get_attribute("data-id")
+    first.click()
+    title = page.locator(".v-head h2").inner_text()
+    page.keyboard.press("x")
+    page.wait_for_function("(t) => document.querySelector('.v-head h2').innerText !== t", arg=title)
+    assert page.locator(".card").count() == 3
+    assert page.locator(f'.card[data-id="{first_id}"]').get_attribute("data-state") == "reject"
+    assert page.errors == []
+
+
+def test_down_arrow_jumps_to_the_next_group_and_closing_keeps_your_place(page):
+    page.locator(".card").nth(0).click()
+    page.keyboard.press("ArrowDown")
+    name = page.locator(".v-head h2").inner_text().split("\n")[0]
+    assert name.startswith("B1")
+    page.keyboard.press("Escape")
+    assert page.evaluate("document.activeElement.dataset.id") is not None

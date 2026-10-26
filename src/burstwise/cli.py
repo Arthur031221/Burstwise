@@ -9,8 +9,8 @@ from pathlib import Path
 from . import __version__, media
 from .config import Settings
 from .export import copy_keepers, write_report, write_xmp
-from .library import Library, analyze_folder
-from .models import DINO, FACE, ensure
+from .library import Library, NothingAnalysed, analyze_folder
+from .models import DINO, FACE, ModelLoadError, ensure
 from .pick import reason_text
 from .xmp import undo_latest
 
@@ -166,7 +166,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except (ModelLoadError, NothingAnalysed) as exc:
+        print(f"burstwise: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

@@ -63,6 +63,7 @@
  "undo.done": "已还原 {n} 个附属文件",
  "undo.none": "没有可撤销的内容",
  "help.nav": "在照片间切换",
+ "help.group": "上一组或下一组",
  "help.pick": "精选",
  "help.reject": "淘汰",
  "help.auto": "回到自动判断",

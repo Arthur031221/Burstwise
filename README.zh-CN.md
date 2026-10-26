@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Arthur031221/Burstwise/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Arthur031221/Burstwise/ci.yml?branch=master&label=tests&labelColor=0e1015&color=ffb020" alt="tests"></a>
+  <a href="https://github.com/Arthur031221/Burstwise/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Arthur031221/Burstwise/ci.yml?branch=main&label=tests&labelColor=0e1015&color=ffb020" alt="tests"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-ffb020?labelColor=0e1015" alt="python 3.10+">
   <img src="https://img.shields.io/badge/license-MIT-ffb020?labelColor=0e1015" alt="MIT license">
   <a href="https://arthur031221.github.io/Burstwise/"><img src="https://img.shields.io/badge/live%20demo-open-ffb020?labelColor=0e1015" alt="live demo"></a>
@@ -55,7 +55,7 @@ burstwise serve ~/Pictures/shoot             # 在浏览器里查看并覆盖
 pipx install git+https://github.com/Arthur031221/Burstwise
 ```
 
-要使用 GPU，`onnxruntime-gpu` 需要可用的 CUDA 12 环境。没有的话 Burstwise 会自动回退到 CPU，也可以加上 `--cpu`。我是在带 NVIDIA GPU 的 Ubuntu 上开发和测试的。
+要使用 GPU，`onnxruntime-gpu` 需要可用的 CUDA 12 环境。没有的话 Burstwise 会自动回退到 CPU，也可以加上 `--cpu`。我是在带 NVIDIA GPU 的 Ubuntu 上开发和测试的。 在精简的服务器、容器或 WSL 上，请先用 `sudo apt install libegl1 libgles2` 安装图形库，否则 Burstwise 会停下并提示人脸模型无法启动。
 
 </details>
 
@@ -111,6 +111,8 @@ pip install -e ".[dev]"
 | reject | 评分 -1（已淘汰），色标 Red |
 
 Sidecar 文件是合并而不是覆盖。Lightroom 或 darktable 里已有的编辑会保留，只会设置 `xmp:Rating`、`xmp:Label` 以及一组 `burstwise:Verdict` 和 `burstwise:Reason`。如果别人写的 sidecar 已经有评分（包含已淘汰）或色标，该照片会被跳过，除非加上 `--overwrite`。Burstwise 之前写的 sidecar 则会在下次运行时直接更新。
+
+Lightroom Classic 只对 raw 文件读取 `.xmp` sidecar。JPEG、TIFF、PNG 和 HEIC 的 XMP 保存在文件内部，所以这里写入的评分和标签不会在 Lightroom 里显示。darktable 对所有格式都会读取 sidecar。这一点来自 Adobe 的文档，我没有在 Lightroom 里试过。
 
 ## 我检查过什么，没检查什么
 

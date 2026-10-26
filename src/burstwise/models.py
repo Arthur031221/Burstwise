@@ -141,6 +141,20 @@ class Embedder:
         return cls / np.linalg.norm(cls, axis=1, keepdims=True)
 
 
+class ModelLoadError(RuntimeError):
+    """A model could not start. The message says what to install or try."""
+
+
+def _load_hint(exc: BaseException) -> str:
+    text = str(exc)
+    if "libEGL" in text or "libGLES" in text or "libGL." in text:
+        return (
+            "the system graphics libraries that MediaPipe needs are missing. "
+            "On Debian or Ubuntu run: sudo apt install libegl1 libgles2"
+        )
+    return text
+
+
 class FaceLandmarks:
     """MediaPipe face landmarker with eye blink blendshapes, one instance per thread."""
 
@@ -153,22 +167,31 @@ class FaceLandmarks:
     def _get(self):
         landmarker = getattr(self._local, "landmarker", None)
         if landmarker is None:
-            from mediapipe.tasks import python as mp_python
-            from mediapipe.tasks.python import vision
-
-            options = vision.FaceLandmarkerOptions(
-                base_options=mp_python.BaseOptions(model_asset_path=self._path),
-                running_mode=vision.RunningMode.IMAGE,
-                output_face_blendshapes=True,
-                num_faces=12,
-                min_face_detection_confidence=0.4,
-                min_face_presence_confidence=0.4,
-            )
             with self._lock, _quiet_stderr():
-                landmarker = vision.FaceLandmarker.create_from_options(options)
+                try:
+                    from mediapipe.tasks import python as mp_python
+                    from mediapipe.tasks.python import vision
+
+                    options = vision.FaceLandmarkerOptions(
+                        base_options=mp_python.BaseOptions(model_asset_path=self._path),
+                        running_mode=vision.RunningMode.IMAGE,
+                        output_face_blendshapes=True,
+                        num_faces=12,
+                        min_face_detection_confidence=0.4,
+                        min_face_presence_confidence=0.4,
+                    )
+                    landmarker = vision.FaceLandmarker.create_from_options(options)
+                except (OSError, ImportError) as exc:
+                    raise ModelLoadError(
+                        f"the face model could not start: {_load_hint(exc)}"
+                    ) from exc
                 self._all.append(landmarker)
             self._local.landmarker = landmarker
         return landmarker
+
+    def warm(self) -> None:
+        """Start the face model on this thread now, so a broken install fails once, early."""
+        self._get()
 
     def close(self) -> None:
         with self._lock:

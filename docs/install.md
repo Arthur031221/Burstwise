@@ -22,6 +22,16 @@ I have not published the package to PyPI yet.
 The first run downloads two model files (about 90 MB) into `~/.cache/burstwise/models` and
 checks their SHA-256. `burstwise models` downloads them ahead of time.
 
+## System libraries on Linux
+
+MediaPipe, which finds the faces, loads the system OpenGL ES libraries. A desktop install has
+them. A minimal server, a container or WSL image often does not, and Burstwise then stops with
+`the face model could not start`. On Debian or Ubuntu:
+
+```
+sudo apt install libegl1 libgles2
+```
+
 ## From source
 
 ```

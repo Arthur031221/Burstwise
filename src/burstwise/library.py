@@ -16,6 +16,11 @@ from .config import Settings
 from .group import group_photos, sort_photos
 from .pick import Verdict, judge_group
 
+
+class NothingAnalysed(RuntimeError):
+    """Every photo in the folder failed, so there is nothing to show."""
+
+
 Progress = Callable[[int, int, str], None]
 
 
@@ -84,7 +89,12 @@ def analyze_folder(
         progress(done, total, "")
     device = "cpu"
     if todo:
-        analyzer = analyzer or Analyzer(use_gpu=use_gpu)
+        try:
+            analyzer = analyzer or Analyzer(use_gpu=use_gpu)
+        except BaseException:
+            if own_cache:
+                cache.close()
+            raise
         device = analyzer.device
         count = workers or min(8, os.cpu_count() or 4)
         with ThreadPoolExecutor(max_workers=count) as pool:
@@ -104,6 +114,11 @@ def analyze_folder(
         analyzer.landmarks.close()
     if own_cache:
         cache.close()
+    if failed and not photos:
+        path, error = failed[0]
+        raise NothingAnalysed(
+            f"none of the {len(paths)} photos could be analysed. First error: {path}: {error}"
+        )
     library = Library(
         folder=folder,
         settings=settings,

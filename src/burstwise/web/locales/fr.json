@@ -63,6 +63,7 @@
  "undo.done": "{n} fichiers XMP restaurés",
  "undo.none": "Rien à annuler",
  "help.nav": "Passer d'une photo à l'autre",
+ "help.group": "Groupe précédent ou suivant",
  "help.pick": "Retenir",
  "help.reject": "Écarter",
  "help.auto": "Revenir au verdict automatique",

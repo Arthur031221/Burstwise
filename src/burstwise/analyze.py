@@ -51,6 +51,7 @@ class Analyzer:
     def __init__(self, use_gpu: bool = True):
         self.embedder = Embedder(use_gpu=use_gpu)
         self.landmarks = FaceLandmarks()
+        self.landmarks.warm()
 
     @property
     def device(self) -> str:

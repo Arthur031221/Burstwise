@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Arthur031221/Burstwise/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Arthur031221/Burstwise/ci.yml?branch=master&label=tests&labelColor=0e1015&color=ffb020" alt="tests"></a>
+  <a href="https://github.com/Arthur031221/Burstwise/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Arthur031221/Burstwise/ci.yml?branch=main&label=tests&labelColor=0e1015&color=ffb020" alt="tests"></a>
   <img src="https://img.shields.io/badge/python-3.10%2B-ffb020?labelColor=0e1015" alt="python 3.10+">
   <img src="https://img.shields.io/badge/license-MIT-ffb020?labelColor=0e1015" alt="MIT license">
   <a href="https://arthur031221.github.io/Burstwise/"><img src="https://img.shields.io/badge/live%20demo-open-ffb020?labelColor=0e1015" alt="live demo"></a>
@@ -55,7 +55,7 @@ burstwise serve ~/Pictures/shoot             # 브라우저에서 확인하고 �
 pipx install git+https://github.com/Arthur031221/Burstwise
 ```
 
-GPU를 쓰려면 `onnxruntime-gpu`가 동작하는 CUDA 12 환경이 필요합니다. 없으면 Burstwise가 알아서 CPU로 돌아가며, `--cpu`를 붙여도 됩니다. NVIDIA GPU가 있는 Ubuntu에서 개발하고 테스트합니다.
+GPU를 쓰려면 `onnxruntime-gpu`가 동작하는 CUDA 12 환경이 필요합니다. 없으면 Burstwise가 알아서 CPU로 돌아가며, `--cpu`를 붙여도 됩니다. NVIDIA GPU가 있는 Ubuntu에서 개발하고 테스트합니다. 최소 구성 서버, 컨테이너, WSL에서는 먼저 `sudo apt install libegl1 libgles2`로 그래픽 라이브러리를 설치하세요. 없으면 Burstwise가 얼굴 모델에 관한 메시지를 내고 멈춥니다.
 
 </details>
 
@@ -111,6 +111,8 @@ pip install -e ".[dev]"
 | reject | 별점 -1(거부), 라벨 Red |
 
 사이드카는 덮어쓰지 않고 병합합니다. Lightroom이나 darktable 사이드카에 이미 있는 편집은 그대로 남고, `xmp:Rating`, `xmp:Label`, 그리고 `burstwise:Verdict`와 `burstwise:Reason` 한 쌍만 설정합니다. 다른 프로그램이 쓴 사이드카에 이미 별점(거부 포함)이나 라벨이 있는 사진은 `--overwrite`를 주지 않는 한 건너뜁니다. Burstwise가 전에 쓴 사이드카는 다음 실행에서 그대로 갱신됩니다.
+
+Lightroom Classic은 raw 파일에 대해서만 `.xmp` 사이드카를 읽습니다. JPEG, TIFF, PNG, HEIC는 XMP를 파일 안에 보관하므로, 여기서 쓴 별점과 라벨은 이 형식에서는 Lightroom에 나타나지 않습니다. darktable은 모든 형식에서 사이드카를 읽습니다. 이 내용은 Adobe 문서에 근거한 것이며 Lightroom에서 직접 해 보지는 않았습니다.
 
 ## 확인한 것과 확인하지 않은 것
 

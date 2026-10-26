@@ -63,6 +63,7 @@
  "undo.done": "Restored {n} sidecars",
  "undo.none": "Nothing to undo",
  "help.nav": "Move between photos",
+ "help.group": "Previous or next group",
  "help.pick": "Pick",
  "help.reject": "Reject",
  "help.auto": "Back to the automatic verdict",

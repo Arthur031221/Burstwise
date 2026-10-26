@@ -63,6 +63,7 @@
  "undo.done": "{n} archivos XMP restaurados",
  "undo.none": "Nada que deshacer",
  "help.nav": "Moverse entre fotos",
+ "help.group": "Grupo anterior o siguiente",
  "help.pick": "Elegir",
  "help.reject": "Descartar",
  "help.auto": "Volver al veredicto automático",
