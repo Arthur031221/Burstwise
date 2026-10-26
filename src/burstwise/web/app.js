@@ -285,15 +285,16 @@ function renderViewer() {
   const s = eff(p);
   const other = view.compare ? groupPick(p) : null;
   const btn = (key, label, fn, on) =>
-    h("button", { onclick: fn, "aria-pressed": on == null ? null : String(on) }, t(label), key && ` (${key})`);
+    h("button", { onclick: fn, "aria-pressed": on == null ? null : String(on) }, t(label), key && h("span", { class: "k" }, ` (${key})`));
   const head = h("div", { class: "v-head" },
     h("h2", {}, p.name, " ", h("span", { class: "badge", style: `position:static;--c:var(--${s})` }, t(`state.${s}`))),
-    btn("←", "viewer.prev", () => step(-1)), btn("→", "viewer.next", () => step(1)),
+    h("button", { onclick: () => step(-1) }, h("span", { class: "arrow", "aria-hidden": "true" }, "←"), h("span", { class: "lbl" }, t("viewer.prev")), h("span", { class: "k" }, " (←)")),
+    h("button", { onclick: () => step(1) }, h("span", { class: "arrow", "aria-hidden": "true" }, "→"), h("span", { class: "lbl" }, t("viewer.next")), h("span", { class: "k" }, " (→)")),
     btn("C", "viewer.compare", () => { view.compare = !view.compare; renderViewer(); }, view.compare),
     btn("F", "viewer.faces", () => { view.faces = !view.faces; renderViewer(); }, view.faces),
     btn("Z", "viewer.zoom", () => { view.zoom = !view.zoom; renderViewer(); }, view.zoom),
-    h("button", { "data-close": true, onclick: closeViewer }, t("viewer.close"), " (Esc)"));
-  const stage = h("div", { class: "v-stage" },
+    h("button", { "data-close": true, onclick: closeViewer }, t("viewer.close"), h("span", { class: "k" }, " (Esc)")));
+  const stage = h("div", { class: `v-stage${other ? " two" : ""}` },
     other && pane(other, t("compare.with")),
     pane(p, other ? t("compare.this") : `${index + 1} / ${list.length}`));
   const good = p.reasons.map((r) => h("li", { class: "good" }, reasonText(r)));
@@ -305,14 +306,18 @@ function renderViewer() {
       h("dt", {}, t("detail.highlights")), h("dd", {}, `${(p.highlights * 100).toFixed(1)}%`),
       h("dt", {}, t("detail.shadows")), h("dd", {}, `${(p.shadows * 100).toFixed(1)}%`),
       h("dt", {}, t("detail.faces")), h("dd", {}, p.faces.length),
-      h("dt", {}, t("detail.rank")), h("dd", {}, `${p.rank} / ${state.groups[p.group].length}`)),
-    h("div", { class: "v-act" },
-      h("button", { onclick: () => decide(p.id, { state: "pick" }, true) }, t("state.pick"), " (P)"),
-      h("button", { onclick: () => decide(p.id, { state: "reject" }, true) }, t("state.reject"), " (X)"),
-      h("button", { onclick: () => decide(p.id, null, true) }, t("viewer.auto"), " (U)"),
-      [1, 2, 3, 4, 5].map((n) =>
-        h("button", { onclick: () => decide(p.id, { rating: n }), "aria-label": `${n}` }, `★${n}`))));
-  $("viewer").replaceChildren(head, stage, info);
+      h("dt", {}, t("detail.rank")), h("dd", {}, `${p.rank} / ${state.groups[p.group].length}`)));
+  const own = decisions[p.id] || {};
+  const act = h("div", { class: "v-act" },
+    h("button", { onclick: () => decide(p.id, { state: "pick" }, true) }, t("state.pick"), h("span", { class: "k" }, " (P)")),
+    h("button", { onclick: () => decide(p.id, { state: "reject" }, true) }, t("state.reject"), h("span", { class: "k" }, " (X)")),
+    h("button", { onclick: () => decide(p.id, null, true) }, t("viewer.auto"), h("span", { class: "k" }, " (U)")),
+    h("span", { class: "stars", role: "group" }, [1, 2, 3, 4, 5].map((n) =>
+      h("button", {
+        onclick: () => decide(p.id, { rating: own.rating === n ? null : n }),
+        "aria-label": `${n}`, "aria-pressed": String(own.rating === n),
+      }, `★${n}`))));
+  $("viewer").replaceChildren(head, stage, info, act);
   const upcoming = list[index + 1];
   if (upcoming) new Image().src = thumbUrl(upcoming, 1600);
 }
@@ -424,6 +429,20 @@ function settingsChanged() {
   }, 250);
 }
 
+// A horizontal swipe on the photo moves to the previous or next one. The stage sets
+// touch-action: pan-y pinch-zoom, so the browser leaves horizontal drags to us.
+let swipe = null;
+function onSwipe(e) {
+  if (e.pointerType === "mouse" || !open || !e.target.closest(".v-stage")) return;
+  if (e.type === "pointerdown") swipe = { x: e.clientX, y: e.clientY };
+  else if (e.type === "pointerup" && swipe) {
+    const dx = e.clientX - swipe.x;
+    const dy = e.clientY - swipe.y;
+    swipe = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > 2 * Math.abs(dy)) step(dx < 0 ? 1 : -1);
+  } else swipe = null;
+}
+
 function trapFocus(e) {
   const items = [...$("viewer").querySelectorAll("button:not([disabled])")];
   const at = items.indexOf(document.activeElement);
@@ -447,7 +466,7 @@ function onKey(e) {
     f: () => { view.faces = !view.faces; renderViewer(); },
     z: () => { view.zoom = !view.zoom; renderViewer(); },
   };
-  if (/^[1-5]$/.test(e.key)) return decide(p.id, { rating: Number(e.key) });
+  if (/^[1-5]$/.test(e.key)) return decide(p.id, { rating: decisions[p.id]?.rating === Number(e.key) ? null : Number(e.key) });
   const fn = keys[e.key] || keys[e.key.toLowerCase()];
   if (fn) { e.preventDefault(); fn(); }
 }
@@ -475,6 +494,7 @@ async function main() {
   $("o-sim").textContent = "0.80";
   $("o-soft").textContent = "0.55";
   document.addEventListener("keydown", onKey);
+  for (const type of ["pointerdown", "pointerup", "pointercancel"]) $("viewer").addEventListener(type, onSwipe);
   try {
     await load();
   } catch (e) {

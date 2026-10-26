@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "burstwise"
-version = "0.1.1"
+version = "0.2.0"
 description = "Cull a thousand photos in minutes on your own GPU. Groups bursts, flags blur and closed eyes, picks the best frame and writes XMP ratings."
 readme = "README.md"
 license = { text = "MIT" }

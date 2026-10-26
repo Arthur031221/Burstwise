@@ -57,7 +57,7 @@ with the group pick, see the detected faces with blink scores, and zoom on a fac
 | Key | Action |
 | --- | --- |
 | `P` / `X` / `U` | pick, reject, back to automatic, then open the next photo |
-| `1` to `5` | set a star rating |
+| `1` to `5` | set a star rating, press the same number again to clear it |
 | `C` | compare with the group pick |
 | `F` | show faces and blink scores |
 | `Z` | zoom |
@@ -72,7 +72,8 @@ ratio and regroups from cached measurements without reading the photos again.
 
 The page has nine languages (English, Traditional and Simplified Chinese, Japanese, Korean,
 Spanish, French, German, Brazilian Portuguese), a dark and a light theme, and works on a phone
-screen.
+screen. On a touch screen, swipe left or right on the photo to move to the next or previous one,
+and the pick, reject and star buttons stay at the bottom of the screen.
 
 ## Live demo
 

@@ -114,3 +114,50 @@ def test_down_arrow_jumps_to_the_next_group_and_closing_keeps_your_place(page):
     assert name.startswith("B1")
     page.keyboard.press("Escape")
     assert page.evaluate("document.activeElement.dataset.id") is not None
+
+
+def _swipe(page, dx, dy=0):
+    page.evaluate(
+        """([dx, dy]) => {
+            const stage = document.querySelector('.v-stage');
+            const fire = (type, x, y) => stage.dispatchEvent(new PointerEvent(type,
+                { pointerType: 'touch', clientX: x, clientY: y, bubbles: true }));
+            fire('pointerdown', 200, 300);
+            fire('pointerup', 200 + dx, 300 + dy);
+        }""",
+        [dx, dy],
+    )
+
+
+def test_swipe_moves_between_photos_but_a_vertical_drag_does_not(page):
+    page.locator(".card").nth(0).click()
+    first = page.locator(".v-head h2").inner_text()
+    _swipe(page, -120)
+    page.wait_for_function("(t) => document.querySelector('.v-head h2').innerText !== t", arg=first)
+    second = page.locator(".v-head h2").inner_text()
+    _swipe(page, 10, 150)
+    assert page.locator(".v-head h2").inner_text() == second
+    _swipe(page, 120)
+    page.wait_for_function("(t) => document.querySelector('.v-head h2').innerText === t", arg=first)
+
+
+def test_rating_button_shows_the_current_stars_and_a_second_press_clears_them(page, app):
+    page.locator(".card").nth(0).click()
+    stars = page.locator(".v-act .stars button")
+    stars.nth(2).click()
+    assert stars.nth(2).get_attribute("aria-pressed") == "true"
+    page.keyboard.press("3")
+    assert stars.nth(2).get_attribute("aria-pressed") == "false"
+    assert page.errors == []
+
+
+def test_phone_viewer_keeps_the_actions_on_screen(page):
+    page.set_viewport_size({"width": 360, "height": 640})
+    page.locator(".card").nth(0).click()
+    page.keyboard.press("c")
+    box = page.evaluate(
+        "(() => { const a = document.querySelector('.v-act').getBoundingClientRect();"
+        " return [a.bottom, innerHeight, document.documentElement.scrollWidth, innerWidth]; })()"
+    )
+    assert box[0] <= box[1] and box[2] <= box[3]
+    assert page.locator(".v-head [data-close]").is_visible()
